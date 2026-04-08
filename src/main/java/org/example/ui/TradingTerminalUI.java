@@ -1,35 +1,41 @@
-package org.example.service;
+package org.example.ui;
 
-import org.example.ui.WalletPanel;
+import org.example.service.MarketDataCache;
+import org.example.service.TradingService;
 import org.knowm.xchart.OHLCChart;
 import org.knowm.xchart.OHLCChartBuilder;
 import org.knowm.xchart.XChartPanel;
 
 import javax.swing.*;
 import java.awt.*;
-import java.util.*;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-public class CandelaService {
+public class TradingTerminalUI {
+    private final String emailUtente;
+    private final TradingService tradingService;
+    private final MarketDataCache dataCache;
+    private final WalletPanel walletPanel; // Riceve il pannello già pronto
+
     private final Map<String, OHLCChart> charts = new HashMap<>();
     private final Map<String, XChartPanel<OHLCChart>> panels = new HashMap<>();
     private final JFrame frame = new JFrame("Trading Wallet 2026 - Live Terminal");
 
-    private final Map<String, List<Date>> xDataMap = new HashMap<>();
-    private final Map<String, List<Double>> openMap = new HashMap<>();
-    private final Map<String, List<Double>> highMap = new HashMap<>();
-    private final Map<String, List<Double>> lowMap = new HashMap<>();
-    private final Map<String, List<Double>> closeMap = new HashMap<>();
+    public TradingTerminalUI(String emailUtente, TradingService tradingService,
+                             MarketDataCache dataCache, WalletPanel walletPanel) {
+        this.emailUtente = emailUtente;
+        this.tradingService = tradingService;
+        this.dataCache = dataCache;
+        this.walletPanel = walletPanel; // Iniettato!
+    }
 
-    public void inizializzaGrafici(List<String> simboli, String emailUtente) {
+    public void inizializzaInterfaccia(List<String> simboli) {
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new BorderLayout());
 
-        WalletPanel sidebarWallet = new WalletPanel(emailUtente);
-        frame.add(sidebarWallet, BorderLayout.EAST);
-
-        TradingService trading = new TradingService();
-        trading.setObserver(sidebarWallet);
+        // Aggiunge semplicemente il pannello che gli è stato passato
+        frame.add(walletPanel, BorderLayout.EAST);
 
         JPanel chartsContainer = new JPanel(new GridLayout(simboli.size(), 1));
 
@@ -41,6 +47,7 @@ public class CandelaService {
                     .title(s + " / USD")
                     .build();
 
+            // grafica:
             chart.getStyler().setPlotBackgroundColor(new Color(30, 30, 30));
             chart.getStyler().setChartBackgroundColor(new Color(45, 45, 45));
             chart.getStyler().setChartFontColor(Color.WHITE);
@@ -53,6 +60,7 @@ public class CandelaService {
 
             XChartPanel<OHLCChart> chartPanel = new XChartPanel<>(chart);
 
+            // Controlli
             JPanel controlPanel = new JPanel();
             controlPanel.setBackground(new Color(45, 45, 45));
 
@@ -68,27 +76,29 @@ public class CandelaService {
             btnSell.setBackground(new Color(239, 83, 80));
             btnSell.setForeground(Color.WHITE);
 
+            // LOGICA BUY
             btnBuy.addActionListener(e -> {
-                if (!closeMap.get(s).isEmpty()) {
-                    try {
-                        double qta = Double.parseDouble(txtQty.getText().replace(",", "."));
-                        double lastPrice = closeMap.get(s).get(closeMap.get(s).size() - 1);
-                        trading.eseguiOrdine(emailUtente, s, "BUY", lastPrice, qta);
-                    } catch (NumberFormatException ex) {
-                        JOptionPane.showMessageDialog(frame, "Inserisci una quantità numerica valida (es. 0.15)");
-                    }
+                try {
+                    double qta = Double.parseDouble(txtQty.getText().replace(",", "."));
+                    double lastPrice = dataCache.getUltimoPrezzo(s);
+                    tradingService.eseguiOrdine(emailUtente, s, "BUY", lastPrice, qta);
+                } catch (NumberFormatException ex) {
+                    JOptionPane.showMessageDialog(frame, "Inserisci una quantità valida.");
+                } catch (IllegalStateException ex) {
+                    JOptionPane.showMessageDialog(frame, "Attendi il caricamento del prezzo...");
                 }
             });
 
+            // LOGICA SELL
             btnSell.addActionListener(e -> {
-                if (!closeMap.get(s).isEmpty()) {
-                    try {
-                        double qta = Double.parseDouble(txtQty.getText().replace(",", "."));
-                        double lastPrice = closeMap.get(s).get(closeMap.get(s).size() - 1);
-                        trading.eseguiOrdine(emailUtente, s, "SELL", lastPrice, qta);
-                    } catch (NumberFormatException ex) {
-                        JOptionPane.showMessageDialog(frame, "Inserisci una quantità numerica valida (es. 0.15)");
-                    }
+                try {
+                    double qta = Double.parseDouble(txtQty.getText().replace(",", "."));
+                    double lastPrice = dataCache.getUltimoPrezzo(s);
+                    tradingService.eseguiOrdine(emailUtente, s, "SELL", lastPrice, qta);
+                } catch (NumberFormatException ex) {
+                    JOptionPane.showMessageDialog(frame, "Inserisci una quantità valida.");
+                } catch (IllegalStateException ex) {
+                    JOptionPane.showMessageDialog(frame, "Attendi il caricamento del prezzo...");
                 }
             });
 
@@ -103,12 +113,6 @@ public class CandelaService {
             charts.put(s, chart);
             panels.put(s, chartPanel);
             chartsContainer.add(container);
-
-            xDataMap.put(s, new ArrayList<>());
-            openMap.put(s, new ArrayList<>());
-            highMap.put(s, new ArrayList<>());
-            lowMap.put(s, new ArrayList<>());
-            closeMap.put(s, new ArrayList<>());
         }
 
         frame.add(chartsContainer, BorderLayout.CENTER);
@@ -116,31 +120,20 @@ public class CandelaService {
         frame.setVisible(true);
     }
 
-    public void aggiungiCandela(String simbolo, Date data, double o, double h, double l, double c) {
-        xDataMap.get(simbolo).add(data);
-        openMap.get(simbolo).add(o);
-        highMap.get(simbolo).add(h);
-        lowMap.get(simbolo).add(l);
-        closeMap.get(simbolo).add(c);
-
-        if (xDataMap.get(simbolo).size() > 100) {
-            xDataMap.get(simbolo).remove(0);
-            openMap.get(simbolo).remove(0);
-            highMap.get(simbolo).remove(0);
-            lowMap.get(simbolo).remove(0);
-            closeMap.get(simbolo).remove(0);
-        }
-
+    public void aggiornaGraficoVisivo(String simbolo) {
         SwingUtilities.invokeLater(() -> {
             try {
                 OHLCChart chart = charts.get(simbolo);
                 if (chart.getSeriesMap().isEmpty()) {
-                    chart.addSeries(simbolo, xDataMap.get(simbolo), openMap.get(simbolo), highMap.get(simbolo), lowMap.get(simbolo), closeMap.get(simbolo));
+                    chart.addSeries(simbolo, dataCache.getDates(simbolo), dataCache.getOpens(simbolo),
+                            dataCache.getHighs(simbolo), dataCache.getLows(simbolo), dataCache.getCloses(simbolo));
                 } else {
-                    chart.updateOHLCSeries(simbolo, xDataMap.get(simbolo), openMap.get(simbolo), highMap.get(simbolo), lowMap.get(simbolo), closeMap.get(simbolo));
+                    chart.updateOHLCSeries(simbolo, dataCache.getDates(simbolo), dataCache.getOpens(simbolo),
+                            dataCache.getHighs(simbolo), dataCache.getLows(simbolo), dataCache.getCloses(simbolo));
                 }
                 panels.get(simbolo).repaint();
-            } catch (Exception e) {}
+            } catch (Exception e) {
+            }
         });
     }
 }

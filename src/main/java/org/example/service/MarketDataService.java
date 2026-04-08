@@ -4,6 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.example.exception.MarketDataException;
+import org.example.ui.TradingTerminalUI;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -13,11 +14,19 @@ import java.util.Date;
 
 public class MarketDataService {
     private final HttpClient client;
-    private final CandelaService candelaService;
 
-    public MarketDataService(CandelaService candelaService) {
+    // Al posto del vecchio CandelaService, ora usiamo i due nuovi moduli separati
+    private final MarketDataCache dataCache;
+    private TradingTerminalUI ui;
+
+    public MarketDataService(MarketDataCache dataCache) {
         this.client = HttpClient.newHttpClient();
-        this.candelaService = candelaService;
+        this.dataCache = dataCache;
+    }
+
+    // Aggiungiamo un setter per la UI in modo da evitare dipendenze circolari
+    public void setUi(TradingTerminalUI ui) {
+        this.ui = ui;
     }
 
     public void caricaStorico(String simbolo) throws MarketDataException {
@@ -42,7 +51,8 @@ public class MarketDataService {
                     JsonObject point = dataArray.get(i).getAsJsonObject();
                     Date date = new Date(point.get("time").getAsLong() * 1000);
 
-                    candelaService.aggiungiCandela(
+                    // 1. Salviamo i dati puri nel "motore" (Cache)
+                    dataCache.aggiungiCandela(
                             simbolo, date,
                             point.get("open").getAsDouble(),
                             point.get("high").getAsDouble(),
@@ -50,6 +60,12 @@ public class MarketDataService {
                             point.get("close").getAsDouble()
                     );
                 }
+
+                // 2. Ordiniamo alla "carrozzeria" (UI) di aggiornare il disegno visivo
+                if (ui != null) {
+                    ui.aggiornaGraficoVisivo(simbolo);
+                }
+
             } else {
                 throw new MarketDataException("Errore API HTTP: " + res.statusCode());
             }

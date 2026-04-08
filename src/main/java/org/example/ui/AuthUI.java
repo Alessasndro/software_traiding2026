@@ -4,7 +4,12 @@ import org.example.service.UserService;
 import javax.swing.*;
 
 public class AuthUI {
-    private final UserService userService = new UserService();
+    private final UserService userService;
+
+    // Dependency Injection: riceve il servizio dall'esterno
+    public AuthUI(UserService userService) {
+        this.userService = userService;
+    }
 
     public String avviaMenuIniziale() {
         while (true) {
