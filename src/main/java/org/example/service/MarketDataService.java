@@ -15,7 +15,6 @@ import java.util.Date;
 public class MarketDataService {
     private final HttpClient client;
 
-    // Al posto del vecchio CandelaService, ora usiamo i due nuovi moduli separati
     private final MarketDataCache dataCache;
     private TradingTerminalUI ui;
 
@@ -24,7 +23,6 @@ public class MarketDataService {
         this.dataCache = dataCache;
     }
 
-    // Aggiungiamo un setter per la UI in modo da evitare dipendenze circolari
     public void setUi(TradingTerminalUI ui) {
         this.ui = ui;
     }
@@ -51,7 +49,6 @@ public class MarketDataService {
                     JsonObject point = dataArray.get(i).getAsJsonObject();
                     Date date = new Date(point.get("time").getAsLong() * 1000);
 
-                    // 1. Salviamo i dati puri nel "motore" (Cache)
                     dataCache.aggiungiCandela(
                             simbolo, date,
                             point.get("open").getAsDouble(),
@@ -61,7 +58,6 @@ public class MarketDataService {
                     );
                 }
 
-                // 2. Ordiniamo alla "carrozzeria" (UI) di aggiornare il disegno visivo
                 if (ui != null) {
                     ui.aggiornaGraficoVisivo(simbolo);
                 }

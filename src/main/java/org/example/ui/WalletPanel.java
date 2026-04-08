@@ -10,7 +10,7 @@ public class WalletPanel extends JPanel implements WalletView {
     private final JLabel lblSaldo;
     private final JPanel assetContainer;
 
-    public WalletPanel() { // <-- Niente dipendenze nel costruttore!
+    public WalletPanel() {
         setLayout(new BorderLayout());
         setPreferredSize(new Dimension(260, 0));
         setBackground(new Color(25, 25, 25));
@@ -48,12 +48,19 @@ public class WalletPanel extends JPanel implements WalletView {
         SwingUtilities.invokeLater(() -> {
             assetContainer.removeAll();
             for (PosizioneDTO pos : posizioni) {
+
+                // LOGICA DEI COLORI
+                double perc = pos.getVariazionePercentuale();
+                String colorePerc = perc >= 0 ? "#4caf50" : "#ef5350"; // Verde se +, Rosso se -
+                String segno = perc > 0 ? "+" : ""; // Mette il + davanti ai numeri positivi
+
                 String labelText = String.format(
                         "<html><div style='color:white; margin:10px; border-bottom:1px solid gray; padding-bottom:5px; width:200px;'>" +
-                                "<b style='font-size:14px; color:#26a69a;'>%s</b><br/>" +
+                                "<b style='font-size:14px; color:#26a69a;'>%s</b> " +
+                                "<span style='color:%s; font-size:12px; font-weight:bold;'>(%s%.2f%%)</span><br/>" +
                                 "Qta: %.4f pz<br/>" +
                                 "PMC: $%,.2f</div></html>",
-                        pos.getSymbol(), pos.getQuantita(), pos.getPrezzoMedioCarico()
+                        pos.getSymbol(), colorePerc, segno, perc, pos.getQuantita(), pos.getPrezzoMedioCarico()
                 );
                 assetContainer.add(new JLabel(labelText));
             }

@@ -29,14 +29,17 @@ public class TradingApplication {
             assemblaModuli(emailUtente);
         }
     }
+
     private void assemblaModuli(String emailUtente) {
         MarketDataCache dataCache = new MarketDataCache();
         PortfolioRepository portfolioRepository = new JdbcPortfolioRepository();
         TradingService tradingService = new TradingService();
 
         WalletPanel walletPanel = new WalletPanel();
+
+        // QUI AGGIUNGIAMO dataCache AL COSTRUTTORE!
         org.example.controller.WalletController walletController = new org.example.controller.WalletController(
-                emailUtente, portfolioRepository, walletPanel
+                emailUtente, portfolioRepository, walletPanel, dataCache
         );
 
         tradingService.setObserver(walletController);
@@ -50,13 +53,14 @@ public class TradingApplication {
         dataService.setUi(terminalUI);
 
         terminalUI.inizializzaInterfaccia(cripto);
-        avviaAggiornamentoDati(dataService);
+
+        // Passiamo anche il controller al thread per farlo aggiornare live
+        avviaAggiornamentoDati(dataService, walletController);
     }
 
-    //Gestione del thread per scaricare i dati senza bloccare la UI
-    private void avviaAggiornamentoDati(MarketDataService dataService) {
+    // Abbiamo aggiunto walletController tra i parametri
+    private void avviaAggiornamentoDati(MarketDataService dataService, org.example.controller.WalletController walletController) {
         new Thread(() -> {
-            // Storico iniziale
             for (String s : cripto) {
                 try {
                     dataService.caricaStorico(s);
@@ -66,7 +70,6 @@ public class TradingApplication {
                 }
             }
 
-            // Loop infinito per il Live
             while (true) {
                 for (String s : cripto) {
                     try {
@@ -75,6 +78,10 @@ public class TradingApplication {
                         System.err.println("⚠ [ERRORE LIVE] " + s + " -> " + e.getMessage());
                     }
                 }
+
+                // MAGIA: Aggiorniamo le percentuali in tempo reale nel wallet!
+                walletController.aggiornaPrezziLive();
+
                 try {
                     Thread.sleep(10000);
                 } catch (InterruptedException e) {

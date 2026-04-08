@@ -27,14 +27,12 @@ public class GraficoService {
         chart.getStyler().setLegendPosition(Styler.LegendPosition.OutsideS);
         chart.getStyler().setMarkerSize(0);
 
-        // DISABILITIAMO il logaritmo per evitare l'errore "less or equal to zero"
         chart.getStyler().setYAxisLogarithmic(false);
 
         for (String s : simboli) {
             xDataMap.put(s, new ArrayList<>());
             yDataMap.put(s, new ArrayList<>());
 
-            // Inizializziamo con 1.0 invece di 0.0 per sicurezza
             chart.addSeries(s, new double[]{0}, new double[]{1});
         }
 
@@ -47,9 +45,7 @@ public class GraficoService {
         List<Double> yData = yDataMap.get(simbolo);
 
         if (xData != null && yData != null) {
-            // Se è il primo vero dato, puliamo il "1" iniziale
             if (xData.size() == 0) {
-                // Rimuoviamo il punto di inizializzazione se necessario o gestiamo l'update
             }
 
             xData.add(tempo);
